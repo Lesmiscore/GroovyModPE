@@ -1,5 +1,7 @@
 package com.nao20010128nao.GroovyModPE
 
+import android.app.AlertDialog
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Environment
 import com.google.common.collect.HashMultimap
@@ -14,7 +16,7 @@ import org.mozilla.javascript.Scriptable
  */
 class Entrance {
     Map<String,Scriptable> modPeValues=[:]
-    Map<File,Multimap<String,Closure>> hooks
+    Map<File,Multimap<String,Closure>> hooks=[:]
     final File modsDir=new File(Environment.externalStorageDirectory,'games/com.mojang/groovyMods/')
 
     void execLoadMods(Context context=tryContextWithMinecraftOne()){
@@ -59,10 +61,28 @@ class Entrance {
                 }else if(inp instanceof Function){
                     content=new GroovyObjectAdapter(inp).call()
                 }
+                compiler.evaluate(content).script
             }
 
-            // run Script
-            script.run()
+            try{
+                // run Script
+                script.run()
+            }catch(e){
+                def dialog=new AlertDialog.Builder(context)
+                dialog.title="An error occurred while executing the code"
+                def sw=new StringWriter()
+                sw.append("File: $f\n")
+                e.printStackTrace(new PrintWriter(sw))
+                dialog.message=sw.toString()
+                dialog.setNegativeButton(android.R.string.ok){di,w->}
+                dialog.setPositiveButton(android.R.string.copy){di,w->
+                    def clip=(ClipboardManager)context.getSystemService(Context.CLIPBOARD_SERVICE)
+                    clip.text=sw.toString()
+                }
+            }finally{
+                // save hooks: even error occurs
+                this.hooks[f]=hooks
+            }
         }
     }
 

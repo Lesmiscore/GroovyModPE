@@ -36,10 +36,61 @@ dependencies {
 
 tasks.withType(GroovyCompile)*.targetCompatibility="1.5"
 
+task("mergeJavascript"){
+    dependsOn "dx"
+    doLast{
+
+    }
+}
+
 task("dx"){
     dependsOn "assembleFullJar"
     doLast{
+        def findJavaBinary={->
+            // choose what executable file to use
+            def candidates=[
+                new File(System.getenv("JAVA_HOME"),"bin/java.exe"),
+                new File(System.getenv("JAVA_HOME"),"bin/java"),
+                new File(System.getProperty("java.home"),"bin/java.exe"),
+                new File(System.getProperty("java.home"),"bin/java"),
+                new File("java.exe"),
+                new File("java")
+            ]
+            def executable=null
+            for(File f:candidates){
+                if(f.exists()&f.canExecute()){
+                    executable=f
+                    break
+                }
+            }
+            return executable
+        }
+        def forkJava={List<String> classpath,String mainClass,List<CharSequence> args->
+            File executable=findJavaBinary()
+            if(executable==null){
+                throw new UnsupportedOperationException("No java binary found: did JAVA_HOME set correctly?")
+            }
+            List<String> command=[]
+            command.add(executable.toString())
+            command.add("-classpath")
+            if(classpath==null){
+                command.add(System.getProperty("java.class.path"))
+            }else{
+                command.add(String.join(File.pathSeparator,classpath))
+            }
+            command.add(mainClass)
+            // GString may cause crash so cast all the members into String forcibly
+            args.stream().map({it.toString()}).forEach({command.add it})
+            return new ProcessBuilder(command).inheritIO().start()
+        }
+        def dest=new File(buildDir,"dx/output.dex")
+        dest.parentFile.mkdirs()
+        def proc=forkJava(null,"com.android.dx.command.Main",["--dex","--output=$dest","$assembleFullJar.archivePath"])
+        proc.waitFor()
+        assert proc.exitValue()==0
 
+        // a hack to do "dx.destination" to get dex file location
+        dx.metaClass.getDestination={->dest}
     }
 }
 
