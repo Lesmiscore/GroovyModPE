@@ -1,15 +1,123 @@
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
 group 'GroovyModPE'
 version '1.0-SNAPSHOT'
+
+buildscript{
+    repositories {
+        mavenCentral()
+    }
+    dependencies{
+        classpath 'com.google.android.tools:dx:1.7'
+    }
+}
 
 apply plugin: 'groovy'
 apply plugin: 'java'
 
-sourceCompatibility = 1.8
+sourceCompatibility = 1.7
 
 repositories {
     mavenCentral()
+    maven{url "https://github.com/nao20010128nao/MavenRepo/raw/master/releases/"}
 }
 
 dependencies {
-    compile 'org.codehaus.groovy:groovy-all:2.3.11'
+    compile 'org.codehaus.groovy:groovy-all:2.4.10'
+    compile 'com.nao20010128nao:android:18'
+    compile 'org.mozilla:rhino:1.7.7.1'
+    compile 'com.google.android.tools:dx:1.7'
+    compile 'com.google.guava:guava:19.0'
+
+    compile project(':adapter')
+}
+
+tasks.withType(GroovyCompile)*.targetCompatibility="1.5"
+
+task("dx"){
+    dependsOn "assembleFullJar"
+    doLast{
+
+    }
+}
+
+task("assembleFullJar",type: Jar){
+    dependsOn "copyGeneratedJar"
+    archiveName "${project.name}.jar"
+    from zipTree(new File(buildDir,"tmp/${project.name}-${version}.jar"))
+}
+
+task("copyGeneratedJar",type: Copy){
+    dependsOn "gatherClasses"
+    def gathered=jar.archivePath
+    def tmp=new File(buildDir,"tmp")
+    into tmp
+    from(gathered.parentFile) {
+        include '*.jar'
+    }
+}
+
+task("gatherClasses"){
+    dependsOn "assemble"
+    doLast {
+        def exclude="^META-INF/.*\\.(?:[SM]F|[RD]SA)\$"
+
+        def archive = jar.archivePath
+        def backup = new File("${archive.absolutePath}.bak")
+        backup.delete()
+        archive.renameTo(backup)
+        new ZipOutputStream(new BufferedOutputStream(archive.newOutputStream())).with { zos ->
+            zos.method = DEFLATED
+            //Merge libraries
+            project.configurations.compile*.toURI().each { singleJar ->
+                new File(singleJar).withInputStream {
+                    new ZipInputStream(it).with { zis ->
+                        ZipEntry entry = null
+                        while ((entry = zis.nextEntry) != null) {
+                            if (entry.name.matches(exclude))
+                                continue
+                            try {
+                                zos.putNextEntry(new ZipEntry(entry.name))
+                                zos.write new UnclosableInputStreamWrapper(zis).bytes
+                                //System.console().readLine()
+                            } catch (e) {
+                                //e.printStackTrace()
+                            }
+                        }
+                    }
+                }
+            }
+            //Merge my code
+            backup.withInputStream {
+                new ZipInputStream(it).with { zis ->
+                    ZipEntry entry = null
+                    while ((entry = zis.nextEntry) != null) {
+                        if (entry.name.matches(exclude))
+                            continue
+                        try {
+                            zos.putNextEntry(new ZipEntry(entry.name))
+                            zos.write new UnclosableInputStreamWrapper(zis).bytes
+                            //System.console().readLine()
+                        } catch (e) {
+                            //e.printStackTrace()
+                        }
+                    }
+                }
+            }
+
+            zos.finish()
+            zos.close()
+        }
+    }
+}
+
+class UnclosableInputStreamWrapper extends FilterInputStream{
+    UnclosableInputStreamWrapper(InputStream inputStream) {
+        super(inputStream)
+    }
+    @Override
+    void close() throws IOException {
+    }
 }
