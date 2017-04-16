@@ -42,7 +42,7 @@ var entrance = dxc.loadClass("com.nao20010128nao.GroovyModPE.Entrance").getConst
 
 // Capture some objects from BlockLauncher
 for(var variable:["addItemInventory","bl_setMobSkin","bl_spawnMob","clientMessage","explode","getCarriedItem","getLevel","getPitch","getPlayerEnt","getPlayerX","getPlayerY","getPlayerZ","getTile","getYaw","preventDefault","print","rideAnimal","setNightMode","setPosition","setPositionRelative","setRot","setTile","setVelX","setVelY","setVelZ","spawnChicken","spawnCow","spawnPigZombie","ModPE","Level","Player","Entity","Item","Block","Server","ChatColor","ItemCategory","ParticleType","EntityType","EntityRenderType","ArmorType","MobEffect","DimensionId","BlockFace","UseAnimation","Enchantment","EnchantType","BlockRenderLayer"]){
-    entrance.getModPeValues.put(variable,eval(variable));
+    entrance.getModPeValues().put(variable,eval(variable));
 }
 
 // Capture hooks
