@@ -34,17 +34,22 @@ dependencies {
     compile project(':adapter')
 }
 
-tasks.withType(GroovyCompile)*.targetCompatibility="1.5"
+tasks.withType(GroovyCompile)*.targetCompatibility="1.7"
 
 task("mergeJavascript"){
     dependsOn "dx"
     doLast{
+        System.gc() // clean up memory
+        def dexBase64=((byte[])dx.destination.bytes).encodeBase64(false).toString()
+        def codeBase=new File(rootDir,"codebase.js").text
 
+        def result=codeBase.replace("<DEX BINARY HERE>",dexBase64)
+        new File(rootDir,"build/GroovyModPE.js").text=result
     }
 }
 
 task("dx"){
-    dependsOn "assembleFullJar"
+    dependsOn "assembleFullJar","downloadDxJar"
     doLast{
         def findJavaBinary={->
             // choose what executable file to use
@@ -72,6 +77,7 @@ task("dx"){
             }
             List<String> command=[]
             command.add(executable.toString())
+            command.add("-Xmx2G")
             command.add("-classpath")
             if(classpath==null){
                 command.add(System.getProperty("java.class.path"))
@@ -83,14 +89,25 @@ task("dx"){
             args.stream().map({it.toString()}).forEach({command.add it})
             return new ProcessBuilder(command).inheritIO().start()
         }
-        def dest=new File(buildDir,"dx/output.dex")
+        def dest=new File(buildDir,"dx/output.zip")
         dest.parentFile.mkdirs()
-        def proc=forkJava(null,"com.android.dx.command.Main",["--dex","--output=$dest","$assembleFullJar.archivePath"])
+        def proc=forkJava(["$downloadDxJar.destination"],"com.android.dx.command.Main",["--dex","--core-library","--multi-dex","--output=$dest","$assembleFullJar.archivePath"])
         proc.waitFor()
         assert proc.exitValue()==0
 
         // a hack to do "dx.destination" to get dex file location
         dx.metaClass.getDestination={->dest}
+    }
+}
+
+task("downloadDxJar"){
+    doLast{
+        def dest=new File(buildDir,"tmp/dx.jar")
+        dest.parentFile.mkdirs()
+        dest.bytes=new URL("https://github.com/nao20010128nao/MavenRepo/raw/master/releases/com/google/android/tools/dx/1.12/dx-1.12.jar").bytes
+
+        // a hack to do "downloadDxJar.destination" to get dx jar location
+        downloadDxJar.metaClass.getDestination={->dest}
     }
 }
 

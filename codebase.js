@@ -10,7 +10,7 @@ var strCls = lang.Class.forName("java.lang.String");
 /*Base 64 string of the DEX file*/
 var dex = "<DEX BINARY HERE>";
 var array = android.util.Base64.decode(dex, 0);
-var fi = io.File(ctx.getFilesDir(), "groovy_mod_pe.dex");
+var fi = io.File(ctx.getCacheDir(), "groovy_mod_pe.zip");
 var fos;
 try {
     fos = io.FileOutputStream(fi);
@@ -20,7 +20,7 @@ try {
 }
 var dcodedir;
 if ((android.os.Build.VERSION.SDK_INT - 21) < 0) {
-    dcodedir = ctx.getDir("optimizedDex", 0);/*Older Android(~4.4W)*/
+    dcodedir = ctx.getCacheDir();/*Older Android(~4.4W)*/
 } else {
     dcodedir = ctx.getCodeCacheDir();/*Newer Android(5.0~)*/
 }
